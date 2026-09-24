@@ -1,7 +1,8 @@
-# Environment files
+# Environment files — never commit a filled copy
 .env
 .env.local
 .env.*.local
+!.env.example
 B2B_Client_Onboarding_Automator/.env
 Ops_Automation_Hub/.env
 
@@ -34,21 +35,3 @@ htmlcov/
 # OS
 .DS_Store
 *.log
-
-# Docker
-Dockerfile
-docker-compose.yml
-docker-compose.*.yml
-.dockerignore
-
-# Git/CI
-.git
-.github
-.gitlab-ci.yml
-
-# Documentation
-*.md
-README
-LICENSE
-.env
-**/.env
