@@ -1,14 +1,26 @@
+<div align="center">
+
 # Dynamic Ops Automation Engine
 
-A multi-tenant, async **FastAPI** ingest and automation service — one of four tools
-built in the May–June 2026 period, before Helix Prime existed. Its thinking (tenant
-isolation, typed ingest contracts, an Erlang C staffing sync, and a webhook fan-out)
-was later absorbed into Helix Prime's B2B Onboarding and WFM engines.
+**A precursor to Helix Prime — a multi-tenant FastAPI service that seeded its B2B and WFM engines.**
 
-It is the only one of the four written as a *service* rather than a script, and the
-engineering in it is real: tenant middleware, per-request correlation IDs, typed
-exception handling, and a fail-closed configuration model. The code demonstrates a
-production-shaped service boundary even though it was a self-directed build.
+![Status](https://img.shields.io/badge/status-learning--exercise-yellow)
+![Type](https://img.shields.io/badge/type-precursor-blue)
+![Licence](https://img.shields.io/badge/licence-MIT-blue)
+![Python](https://img.shields.io/badge/python-3.10%2B-3776ab)
+
+</div>
+
+## One-line identity
+
+A May–June 2026 learning exercise written as a *service* rather than a script: a multi-tenant, async FastAPI ingest and automation layer. Its thinking — tenant isolation, typed ingest contracts, an Erlang C staffing sync, and a webhook fan-out — later became Helix Prime's B2B Onboarding and WFM engines.
+
+> [!NOTE]
+> **Operating principle.** The engineering is real even though it was a self-directed build. Multi-tenant FastAPI with tenant middleware, per-request correlation IDs, typed exception handling, and a fail-closed configuration model that refuses to boot without database credentials. No tests, no Notion adapter, and no Excel output — those were claimed in earlier revisions and have been removed.
+
+A multi-tenant, async **FastAPI** ingest and automation service — one of four tools built in the May–June 2026 period, before Helix Prime existed. Its thinking (tenant isolation, typed ingest contracts, an Erlang C staffing sync, and a webhook fan-out) was later absorbed into Helix Prime's B2B Onboarding and WFM engines.
+
+It is the only one of the four written as a *service* rather than a script, and the engineering in it is real: tenant middleware, per-request correlation IDs, typed exception handling, and a fail-closed configuration model. The code demonstrates a production-shaped service boundary even though it was a self-directed build.
 
 ## What it is
 
@@ -23,54 +35,26 @@ Four POST endpoints, each taking a typed Pydantic payload:
 
 Plus `GET /health`, a deep check that reports on the engine and its dependencies.
 
-**The tenancy model is real, not decorative.** Every endpoint requires an
-`X-Tenant-ID` header unless explicitly exempted. `TenantMiddleware` resolves that
-header to a `TenantContext` and rejects unknown or inactive tenants with 403/404.
-Each tenant carries its own `SLAConfig`, `ErlangThresholds`, `AlertSeverity` levels,
-and `WebhookDestination` list with its own `WebhookAuthScheme` — so service-level
-targets and staffing thresholds are per-tenant configuration, not constants.
-API-key verification is a FastAPI dependency (`app/api/v1/dependencies/security.py`).
+**The tenancy model is real, not decorative.** Every endpoint requires an `X-Tenant-ID` header unless explicitly exempted. `TenantMiddleware` resolves that header to a `TenantContext` and rejects unknown or inactive tenants with 403/404. Each tenant carries its own `SLAConfig`, `ErlangThresholds`, `AlertSeverity` levels, and `WebhookDestination` list with its own `WebhookAuthScheme` — so service-level targets and staffing thresholds are per-tenant configuration, not constants. API-key verification is a FastAPI dependency (`app/api/v1/dependencies/security.py`).
 
-**The middleware stack is deliberate**, and the ordering comments explain why: CORS
-outermost to catch preflight, then a UUID correlation ID on every request
-(`RequestIDMiddleware`), then an `X-Response-Time-Ms` timing header, then tenant
-resolution. Typed exception handlers cover validation errors, `HTTPException`,
-tenant-not-found, tenant-inactive, and an unhandled catch-all. `/docs`, `/redoc`, and
-`/openapi.json` are disabled when `is_production` is set.
+**The middleware stack is deliberate**, and the ordering comments explain why: CORS outermost to catch preflight, then a UUID correlation ID on every request (`RequestIDMiddleware`), then an `X-Response-Time-Ms` timing header, then tenant resolution. Typed exception handlers cover validation errors, `HTTPException`, tenant-not-found, tenant-inactive, and an unhandled catch-all. `/docs`, `/redoc`, and `/openapi.json` are disabled when `is_production` is set.
 
-**Erlang C is implemented** in `app/services/wfm_engine.py` (`_erlang_b` and
-`_erlang_c`), driving the staffing sync behind the forecast endpoint.
-`SentinelEngine` monitors KPI health and queues events for background fan-out
-through `WebhookDispatcher`.
+**Erlang C is implemented** in `app/services/wfm_engine.py` (`_erlang_b` and `_erlang_c`), driving the staffing sync behind the forecast endpoint. `SentinelEngine` monitors KPI health and queues events for background fan-out through `WebhookDispatcher`.
 
 ## Configuration model — fail-closed by design
 
-The service will not boot without database credentials. Importing the app raises a
-Pydantic validation error — `DB_PASSWORD: Field required`. That is a **deliberate,
-fail-closed default**: the service refuses to start against an unconfigured database
-rather than starting half-configured. Point `DB_HOST`, `DB_PORT`, `DB_NAME`,
-`DB_USER`, `DB_PASSWORD`, `REDIS_HOST`, `REDIS_PORT` at a real Postgres (or use the
-repository's `docker-compose`) and it starts.
+The service will not boot without database credentials. Importing the app raises a Pydantic validation error — `DB_PASSWORD: Field required`. That is a **deliberate, fail-closed default**: the service refuses to start against an unconfigured database rather than starting half-configured. Point `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `REDIS_HOST`, `REDIS_PORT` at a real Postgres (or use the repository's `docker-compose`) and it starts.
 
 ## Scope — what is not in this repository
 
 Stated plainly so the README matches the code:
 
 - **No tests.** Zero test files; nothing here is verified by a suite.
-- **No Notion integration.** The word "notion" appears only in this README — no
-  adapter, no client, no `notion-client` in `requirements.txt`. Earlier revisions
-  claimed a "Notion provisioning" stage; it does not exist.
-- **No Excel output.** No `openpyxl` or `xlsxwriter`, and no spreadsheet code of any
-  kind. Earlier revisions claimed an "Excel output package"; it does not exist.
-- **No client-intake form.** What exists is a typed API contract, not the
-  "structured intake form" earlier revisions described.
-- **`.env.production` and `.env.staging` are tracked**, with placeholder values
-  (`DB_PASSWORD=change_me_in_production`,
-  `SECRET_KEY=change_me_to_a_secure_random_key_min_32_chars`). No credential is
-  exposed, but tracking those filenames is a hygiene problem; they should be replaced
-  by `.env.example` and untracked.
-- **`Ops_Automation_Hub/requirements.txt` is an oddly nested path** for the only
-  requirements file in the repository.
+- **No Notion integration.** The word "notion" appears only in this README — no adapter, no client, no `notion-client` in `requirements.txt`. Earlier revisions claimed a "Notion provisioning" stage; it does not exist.
+- **No Excel output.** No `openpyxl` or `xlsxwriter`, and no spreadsheet code of any kind. Earlier revisions claimed an "Excel output package"; it does not exist.
+- **No client-intake form.** What exists is a typed API contract, not the "structured intake form" earlier revisions described.
+- **`.env.production` and `.env.staging` are tracked**, with placeholder values (`DB_PASSWORD=change_me_in_production`, `SECRET_KEY=change_me_to_a_secure_random_key_min_32_chars`). No credential is exposed, but tracking those filenames is a hygiene problem; they should be replaced by `.env.example` and untracked.
+- **`Ops_Automation_Hub/requirements.txt` is an oddly nested path** for the only requirements file in the repository.
 
 ## Run it
 
@@ -88,22 +72,12 @@ export DB_HOST=localhost DB_PORT=5432 DB_NAME=ops_engine \
 uvicorn app.main:app --reload
 ```
 
-Then `GET /health`, and `/docs` for the OpenAPI surface (which is available outside
-production). The `Dockerfile` builds on `python:3.10-slim`, installs every
-`requirements.txt` it finds, and runs `uvicorn app.main:app`.
+Then `GET /health`, and `/docs` for the OpenAPI surface (which is available outside production). The `Dockerfile` builds on `python:3.10-slim`, installs every `requirements.txt` it finds, and runs `uvicorn app.main:app`.
 
-## Status
-
-Built May–June 2026 as a standalone service and a learning build; never deployed to a
-live workforce-management, CRM, or telephony system, and never connected to one. It has
-no external audit, no certified data isolation, and no signed security review. The
-engineering it demonstrates — multi-tenant FastAPI, tenant middleware, correlation-ID
-tracing, and fail-closed configuration — is real, and it is where Helix Prime's B2B and
-WFM engines started.
-
-The GitHub repository description still carries the earlier "under 60 minutes" framing.
-That figure was a June 2026 project target with no recorded baseline, sample, or method,
-and it is not repeated here.
+> [!WARNING]
+> **Status.** Built May–June 2026 as a standalone service and a learning build; never deployed to a live workforce-management, CRM, or telephony system, and never connected to one. It has no external audit, no certified data isolation, and no signed security review. The engineering it demonstrates — multi-tenant FastAPI, tenant middleware, correlation-ID tracing, and fail-closed configuration — is real, and it is where Helix Prime's B2B and WFM engines started.
+>
+> The GitHub repository description still carries the earlier "under 60 minutes" framing. That figure was a June 2026 project target with no recorded baseline, sample, or method, and it is not repeated here.
 
 ## Related work
 
